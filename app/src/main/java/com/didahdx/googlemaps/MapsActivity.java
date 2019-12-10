@@ -221,7 +221,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     };
 
 
-    //used to get the search location
+    //used to get the searched location
     private void geoLocation() {
         Log.d(TAG, "Geo locating");
 

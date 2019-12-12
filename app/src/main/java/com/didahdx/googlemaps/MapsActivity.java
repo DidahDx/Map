@@ -7,6 +7,7 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -22,6 +23,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -34,11 +36,16 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.net.PlacesClient;
+import com.google.android.libraries.places.widget.Autocomplete;
+import com.google.android.libraries.places.widget.AutocompleteActivity;
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 
 import java.io.IOException;
 import java.security.KeyStore;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -55,6 +62,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private FusedLocationProviderClient fusedLocationProviderClient;
     private EditText mSearchText;
     private ImageView mGps;
+
+    static final int AUTOCOMPLETE_REQUEST_CODE = 1;
+    // Set the fields to specify which types of place data to
+// return after the user has made a selection.
+    List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +86,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         if (LocationPermissionsGranted) {
             getDeviceLocation();
-
         }
 
     }
@@ -82,7 +93,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void init() {
         Log.d(TAG, "initialising");
         mGps.setOnClickListener(this);
-        mSearchText.setOnEditorActionListener(onEditorActionListener);
+        mSearchText.setOnClickListener(this);
+//        mSearchText.setOnEditorActionListener(onEditorActionListener);
         FideSoftKeyBoard();
     }
 
@@ -129,6 +141,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void moveCamera(LatLng latLng, float zoom, String title) {
         Log.d(TAG, "Latitude " + latLng.latitude + "  Longitude " + latLng.longitude);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
+
+        mMap.clear();
 
         if (!title.equals("My Location")) {
 
@@ -194,6 +208,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (v == mGps) {
             Log.d(TAG, "onClick: get Current Location");
             getDeviceLocation();
+        }else if (v== mSearchText){
+            Intent intent = new Autocomplete.IntentBuilder(
+                    AutocompleteActivityMode.OVERLAY, fields)
+                    .build(MapsActivity.this);
+            startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE);
         }
     }
 
@@ -207,19 +226,51 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             if (actionId == EditorInfo.IME_ACTION_SEARCH
                     || actionId == EditorInfo.IME_ACTION_DONE) {
+
+                // Start the autocomplete intent.
+                Intent intent = new Autocomplete.IntentBuilder(
+                        AutocompleteActivityMode.OVERLAY, fields)
+                        .build(MapsActivity.this);
+                startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE);
                 //search the location
-                geoLocation();
+//                geoLocation();
             }
 
             if (event != null && (KeyEvent.ACTION_DOWN == event.getAction() || KeyEvent.KEYCODE_ENTER == event.getAction())) {
+                // Start the autocomplete intent.
+                Intent intent = new Autocomplete.IntentBuilder(
+                        AutocompleteActivityMode.OVERLAY, fields)
+                        .build(MapsActivity.this);
+                startActivityForResult(intent, AUTOCOMPLETE_REQUEST_CODE);
                 //search the location
-                geoLocation();
+//                geoLocation();
             }
 
             return false;
         }
     };
 
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == AUTOCOMPLETE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK) {
+                Place place = Autocomplete.getPlaceFromIntent(data);
+                Log.i(TAG, "Place: " + place.getName() + ", " + place.getId());
+                Toast.makeText(this,"Place: " + place.getName() + ", " + place.getId() , Toast.LENGTH_SHORT).show();
+            } else if (resultCode == AutocompleteActivity.RESULT_ERROR) {
+                // TODO: Handle the error.
+                Status status = Autocomplete.getStatusFromIntent(data);
+                if (status.getStatusMessage() != null) {
+                    Log.i(TAG, status.getStatusMessage());
+                    Toast.makeText(this, status.getStatusMessage(), Toast.LENGTH_SHORT).show();
+                }
+            } else if (resultCode == RESULT_CANCELED) {
+                // The user canceled the operation.
+            }
+        }
+    }
 
     //used to get the searched location
     private void geoLocation() {
